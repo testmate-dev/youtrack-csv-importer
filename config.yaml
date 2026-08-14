@@ -1,0 +1,71 @@
+# Your YouTrack URL
+url: "https://testmate.youtrack.cloud"
+
+# Permanent token
+token: "perm-cm9oaXQucA==.NTYtMA==.uK3gan6lzMaPofD7D13oDOxYwMBG43"
+
+# Project short name
+project: "TMD"
+
+# Every imported issue becomes a subtask of this issue.
+# Set to null to disable automatic linking.
+# parent_epic: "TMD-5"
+
+# In a brand-new project, TMD-5 is created during this import.
+# Create old TMD-1 through TMD-5 without parent linking, then link the
+# remaining imported issues to the newly-created TMD-5.
+# link_after_issue_id: "TMD-5"
+
+# Sort by the old issue id before import so an empty project assigns
+# TMD-1, TMD-2, TMD-3, TMD-4, then TMD-5 to the matching CSV rows.
+sort_by_issue_id: true
+issue_id_column: "Issue Id"
+
+# Column names in your spreadsheet
+columns:
+  summary: "Summary"
+  description: "Description"
+
+# CSV columns that cannot be reused in the new project.
+ignored_columns:
+  - "Issue Id"
+
+# Optional mapping of component names to parent epic IDs
+component_epics:
+  "API": "TMD-26"
+  "Backend": "TMD-27"
+  "Frontend": "TMD-28"
+# The column in the CSV that contains the component name (defaults to "Component")
+# component_column: "Component"
+
+# The left side must be the YouTrack field name in the target project.
+# The right side must be the CSV column name.
+field_mappings:
+  Priority: "Priority"
+  Type: "Type"
+  Assignee: "Assignee"
+  Stage: "Stage"
+  Component: "Component"
+  Estimation: "Estimation"
+
+# Values that should be skipped instead of being imported literally.
+empty_values_by_field:
+  Assignee:
+    - "Unassigned"
+  Component:
+    - "No component"
+
+# Columns preserved in the issue description because YouTrack exposes them
+# as read-only system fields, project placement, tags, or time-tracking totals.
+metadata_columns:
+  - "Project"
+  - "Tags"
+  - "Reporter"
+  - "Created"
+  - "Updated"
+  - "Resolved"
+  - "Spent time"
+  - "Votes"
+
+# Dry run (don't create anything)
+dry_run: false
