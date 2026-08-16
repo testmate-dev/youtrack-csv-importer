@@ -13,12 +13,6 @@ from tqdm import tqdm
 from youtrack_api import YouTrackClient, YouTrackError
 
 
-DEFAULT_IGNORED_COLUMNS = {
-    "Issue Id",
-    "Summary",
-    "Description",
-}
-
 NAMED_VALUE_TYPES = {
     "enum",
     "state",
@@ -75,7 +69,7 @@ def validate_columns(df: pd.DataFrame, columns: dict, field_mappings: dict):
 
 
 def issue_id_sort_value(value: str) -> int:
-    match = re.search(r"-(\d+)$", value)
+    match = re.search(r"(?:^|-)(\d+)$", value.strip())
 
     if not match:
         return sys.maxsize
@@ -105,7 +99,7 @@ def get_parent_epic(row, config) -> list:
                     epics.append(component_epics[comp])
     # Legacy fallback (single parent)
     parent_epic = config.get("parent_epic")
-    if parent_epic:
+    if parent_epic and not epics:
         link_after_issue_id = config.get("link_after_issue_id")
         if not link_after_issue_id:
             epics.append(parent_epic)
@@ -322,52 +316,6 @@ def build_field_value(client: YouTrackClient, field_name: str, raw_value: str):
     return raw_value
 
 
-def metadata_columns(df: pd.DataFrame, config: dict) -> list[str]:
-    ignored = set(DEFAULT_IGNORED_COLUMNS)
-    ignored.update(config.get("ignored_columns", []))
-
-    mapped_columns = set()
-    for mapping in config.get("field_mappings", {}).values():
-        mapped_columns.add(mapping if isinstance(mapping, str) else mapping["column"])
-
-    configured = config.get("metadata_columns")
-    if configured is not None:
-        return [
-            column
-            for column in configured
-            if column in df.columns
-        ]
-
-    return [
-        column
-        for column in df.columns
-        if column not in ignored and column not in mapped_columns
-    ]
-
-
-def append_metadata(description: str, row, columns: list[str]) -> str:
-    lines = []
-
-    for column in columns:
-        value = get_cell(row, column)
-        if value:
-            lines.append(f"- {column}: {value}")
-
-    if not lines:
-        return description
-
-    sections = []
-    if description:
-        sections.append(description)
-
-    sections.append(
-        "Original CSV values:\n"
-        + "\n".join(lines)
-    )
-
-    return "\n\n---\n\n".join(sections)
-
-
 def main():
 
     parser = argparse.ArgumentParser(
@@ -411,11 +359,9 @@ def main():
     validate_columns(df, columns, field_mappings)
     df = sort_dataframe(df, config)
     df = filter_dataframe(df, config, args)
-    metadata_column_names = metadata_columns(df, config)
 
     print(f"Loaded {len(df)} rows")
     print(f"Mapped custom fields: {len(field_mappings)}")
-    print(f"Preserved metadata columns: {len(metadata_column_names)}")
 
     print()
 
@@ -474,6 +420,7 @@ def main():
     would_create = 0
     would_link = 0
     linked = 0
+    link_failed = 0
 
     for index, row in tqdm(
         df.iterrows(),
@@ -494,11 +441,6 @@ def main():
         description = get_cell(
             row,
             columns["description"],
-        )
-        description = append_metadata(
-            description,
-            row,
-            metadata_column_names,
         )
 
         # Determine parent epic(s) for this row
@@ -533,12 +475,26 @@ def main():
                 description=description,
                 custom_fields=custom_fields,
             )
+            created += 1
+
             # Link to each parent epic (if any)
             for parent_epic_id in parent_epic_ids:
-                client.link_as_subtask(issue["id"], parent_epic_id)
-                linked += 1
-
-            created += 1
+                try:
+                    client.link_as_subtask(issue["id"], parent_epic_id)
+                    linked += 1
+                except Exception as e:
+                    link_failed += 1
+                    print()
+                    print(
+                        f"Link failed for created issue "
+                        f"{issue.get('idReadable', issue['id'])}: "
+                        f"subtask of {parent_epic_id}"
+                    )
+                    print(repr(e))
+                    print(
+                        "The issue was created successfully. Do not rerun "
+                        "this row; add the parent link manually."
+                    )
 
         except YouTrackError as e:
             failed += 1
@@ -568,6 +524,7 @@ def main():
     else:
         print(f"Created : {created}")
         print(f"Linked  : {linked}")
+        print(f"Link failures: {link_failed}")
     print(f"Skipped : {skipped}")
     print(f"Failed  : {failed}")
     print("=" * 60)

@@ -32,7 +32,7 @@ class YouTrackClient:
         "enum[1]": "SingleEnumIssueCustomField",
         "enum[*]": "MultiEnumIssueCustomField",
         "state[1]": "StateIssueCustomField",
-        "state[*]": "MultiEnumIssueCustomField",
+        "state[*]": "MultiStateIssueCustomField",
         "user[1]": "SingleUserIssueCustomField",
         "user[*]": "MultiUserIssueCustomField",
         "ownedField[1]": "SingleOwnedIssueCustomField",
@@ -114,17 +114,28 @@ class YouTrackClient:
     # ------------------------------------------------------------------
 
     def get_project(self, short_name: str) -> dict:
+        page_size = 100
+        skip = 0
 
-        projects = self._get(
-            "/admin/projects",
-            fields="id,name,shortName",
-        )
+        while True:
+            projects = self._get(
+                "/admin/projects",
+                fields="id,name,shortName",
+                params={
+                    "$top": page_size,
+                    "$skip": skip,
+                },
+            )
 
-        for project in projects:
+            for project in projects:
+                if project["shortName"] == short_name:
+                    self.project = project
+                    return project
 
-            if project["shortName"] == short_name:
-                self.project = project
-                return project
+            if len(projects) < page_size:
+                break
+
+            skip += page_size
 
         raise YouTrackError(
             f"Project '{short_name}' not found."

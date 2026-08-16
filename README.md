@@ -6,7 +6,6 @@ The importer:
 
 - Creates new issues
 - Sets configured custom fields (Priority, Type, Assignee, Stage, Component, Estimation, etc.)
-- Preserves read-only or unmapped CSV columns in the issue description
 - Automatically links every created issue as a subtask of a parent issue (for example `TMD-5`).
 - If a `component_epics` mapping is defined in `config.yaml`, issues will be linked to the epic corresponding to their component value (column defined by `component_column`).
 - Falls back to the original `parent_epic` behavior when no mapping matches.
@@ -71,16 +70,6 @@ empty_values_by_field:
   Component:
     - "No component"
 
-metadata_columns:
-  - "Project"
-  - "Tags"
-  - "Reporter"
-  - "Created"
-  - "Updated"
-  - "Resolved"
-  - "Spent time"
-  - "Votes"
-
 dry_run: true
 ```
 
@@ -97,7 +86,6 @@ dry_run: true
 | ignored_columns | Columns that should not be imported, such as old issue IDs |
 | field_mappings | Maps CSV columns to YouTrack custom fields with the same intended meaning |
 | empty_values_by_field | Values that should be skipped rather than import text literally |
-| metadata_columns | CSV columns preserved in the description when they cannot be set directly |
 | dry_run | Prints what would be imported without creating issues |
 
 ---
@@ -123,7 +111,7 @@ CSV:
 python import_issues.py backlog.csv
 ```
 
-Import one row after a partial failure:
+Import one row that was not created:
 
 ```bash
 python import_issues.py --only-issue-id TMD-38 allissues.csv
@@ -175,7 +163,7 @@ For each row in the spreadsheet the importer:
 1. Reads the issue information.
 2. Creates a new issue in YouTrack, unless `dry_run` is enabled.
 3. Sets all configured fields in `field_mappings`.
-4. Links the issue as a subtask of `parent_epic`, if configured.
+4. Links the issue as a subtask of the matching `component_epics` epic, or the fallback `parent_epic`, if configured.
 5. Continues to the next row.
 
 The importer **never modifies existing issues**.
@@ -184,10 +172,10 @@ The importer **never modifies existing issues**.
 
 # Notes
 
-- Issue IDs (for example `TMD-13`) are assigned automatically by YouTrack.
+- Source issue IDs may be numeric (for example `13`) or have a project prefix (for example `TMD-13`). New YouTrack issue IDs are assigned automatically.
 - For a fresh project, `sort_by_issue_id: true` makes the old `TMD-5` row the fifth issue created, so it should receive `TMD-5` if the project has no existing issues.
 - `link_after_issue_id: "TMD-5"` creates old `TMD-1` through `TMD-5` without parent linking, then links the remaining imported issues to `TMD-5`.
-- YouTrack REST marks Created, Updated, Resolved, Reporter and Votes as read-only. The importer preserves these values in the description unless you create separate writable custom fields and map them in `field_mappings`.
+- If an issue is created but its parent link fails, the importer reports the created issue ID and continues. Do not rerun that source row; add its parent link manually to avoid creating a duplicate.
 - Existing issues are not updated.
 - Empty Summary values are skipped.
 - Empty Assignee values and `Unassigned` leave the issue unassigned.
