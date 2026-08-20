@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# project config file
+config.yaml
+
+# any csv's used during the import
+*.csv

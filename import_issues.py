@@ -6,7 +6,10 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError as e:
+    raise ImportError("Are you sure you created a venv and installed requirements.txt and are you inside the venv/env?") from e
 import yaml
 from tqdm import tqdm
 
